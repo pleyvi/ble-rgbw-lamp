@@ -42,13 +42,13 @@ Handles the License.free requirement enforced by newer versions of the flutter_b
 Firmware:
 Requires ESP-IDF v5.5+.
 
-`cd esp32_c6_firmware
-idf.py set-target esp32c6
+`cd esp32_c6_firmware; 
+idf.py set-target esp32c6; 
 idf.py build flash monitor`
 
 ## Mobile App:
 Requires the Flutter SDK. Target a physical Android device, as the Android emulator does not support BLE passthrough.
 
-`cd flutter_android_remote_control_app
+`cd flutter_android_remote_control_app; 
 flutter run`
 
