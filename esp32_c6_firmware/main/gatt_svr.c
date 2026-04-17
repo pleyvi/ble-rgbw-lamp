@@ -20,7 +20,7 @@ static int gatt_svr_access_led(uint16_t conn_handle, uint16_t attr_handle, struc
         uint8_t *data = ctxt->om->om_data;
         uint16_t len = OS_MBUF_PKTLEN(ctxt->om);
         
-        if (len == 4 && ble_mutex != NULL) {
+        if (len == 4 && ble_mutex != NULL) { //old version of the app
             // Lock the mutex before writing to shared state
             if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                 target_state.r = data[0];
@@ -32,7 +32,22 @@ static int gatt_svr_access_led(uint16_t conn_handle, uint16_t attr_handle, struc
                 ESP_LOGI(TAG, "State Updated: R:%d G:%d B:%d W:%d", 
                          target_state.r, target_state.g, target_state.b, target_state.w);
             }
+        } else
+        if (len == 5 && ble_mutex != NULL) { //new version of the app with a smooth control
+            // Lock the mutex before writing to shared state
+            if (xSemaphoreTake(ble_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+                target_state.r = data[0];
+                target_state.g = data[1];
+                target_state.b = data[2];
+                target_state.w = data[3];
+		// Byte 4 (the 5th byte) controls smoothing
+                target_state.smoothing_enabled = data[4] ? 1 : 0;
+                xSemaphoreGive(ble_mutex);
+                ESP_LOGI(TAG, "State Updated: R:%d G:%d B:%d W:%d Smooth:%d", 
+                         target_state.r, target_state.g, target_state.b, target_state.w, target_state.smoothing_enabled);
+            }
         }
+
         return 0;
     }
     return BLE_ATT_ERR_UNLIKELY;

@@ -59,7 +59,8 @@ class ControlScreen extends StatefulWidget {
 
 class _ControlScreenState extends State<ControlScreen> {
   BluetoothCharacteristic? targetChar;
-  final List<double> _values = [0, 0, 0, 0]; //R,G,B,W
+  final List<double> _values = [0, 0, 0, 0]; // R, G, B, W
+  bool _smoothFading = true; // Add tracking for the toggle
 
   @override
   void initState() {
@@ -67,38 +68,30 @@ class _ControlScreenState extends State<ControlScreen> {
     _connect();
   }
 
- Future<void> _connect() async {
-    try {
-      print("Attempting to connect...");
-      await widget.device.connect(autoConnect: false, license: License.free);
-      print("Connected! Discovering services...");
-      
-      List<BluetoothService> services = await widget.device.discoverServices();
-      for (var s in services) {
-        for (var c in s.characteristics) {
-          print("Checking Characteristic: ${c.uuid}");
-          // 16-bit UUIDs appear in Flutter as 0000xxxx-0000-1000-8000-00805f9b34fb
-          if (c.uuid.toString().contains("2a3d")) {
-            print("Target Characteristic Found!");
-            setState(() => targetChar = c);
-          }
+  Future<void> _connect() async {
+    await widget.device.connect(autoConnect: false, license: License.free);
+    List<BluetoothService> services = await widget.device.discoverServices();
+    for (var s in services) {
+      for (var c in s.characteristics) {
+        if (c.uuid.toString().contains("2a3d")) {
+          setState(() => targetChar = c);
         }
       }
-    } catch (e) {
-      print("Connection Error: $e");
+    }
+  }
+
+  // Extracted the sending logic so both sliders and the switch can trigger it
+  void _sendData() {
+    if (targetChar != null) {
+      List<int> bytes = _values.map((e) => e.toInt()).toList();
+      bytes.add(_smoothFading ? 1 : 0); // Append the 5th byte
+      targetChar!.write(bytes, withoutResponse: true);
     }
   }
 
   void _updateColor(int index, double value) {
     setState(() => _values[index] = value);
-    if (targetChar != null) {
-      // Convert our double values (0-255) to a byte list
-      List<int> bytes = _values.map((e) => e.toInt()).toList();
-      
-      // We use withoutResponse: true for sliders to keep the UI fluid 
-      // and avoid overwhelming the BLE stack with acknowledgments.
-      targetChar!.write(bytes, withoutResponse: true);
-    }
+    _sendData();
   }
 
   @override
@@ -106,24 +99,38 @@ class _ControlScreenState extends State<ControlScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text("Controller")),
       body: Column(
-        children: List.generate(4, (i) {
-          final labels = ["Red", "Green", "Blue", "White"];
-          final colors = [Colors.red, Colors.green, Colors.blue, Colors.grey];
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Text("${labels[i]}: ${_values[i].toInt()}"),
-                Slider(
-                  value: _values[i],
-                  min: 0, max: 255,
-                  activeColor: colors[i],
-                  onChanged: (v) => _updateColor(i, v),
-                ),
-              ],
-            ),
-          );
-        }),
+        children: [
+          // The new UI Toggle for Smooth Fading
+          SwitchListTile(
+            title: const Text("Smooth Fading"),
+            subtitle: const Text("Interpolate color changes"),
+            value: _smoothFading,
+            onChanged: (val) {
+              setState(() => _smoothFading = val);
+              _sendData(); // Instantly apply the setting
+            },
+          ),
+          const Divider(),
+          // The existing RGBW Sliders
+          ...List.generate(4, (i) {
+            final labels = ["Red", "Green", "Blue", "White"];
+            final colors = [Colors.red, Colors.green, Colors.blue, Colors.grey];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Column(
+                children: [
+                  Text("${labels[i]}: ${_values[i].toInt()}"),
+                  Slider(
+                    value: _values[i],
+                    min: 0, max: 255,
+                    activeColor: colors[i],
+                    onChanged: (v) => _updateColor(i, v),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
