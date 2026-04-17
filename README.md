@@ -18,7 +18,7 @@ Common ground tied across all MOSFETs and the ESP32 to prevent floating gates.
 
 Load: 12V Common-Anode RGBW LED strip.
 
-(Note: Schematic and wiring diagrams will be added to a hardware/ directory in a future commit).
+Basic wiring diagram is in the hardware/ directory.
 
 ## Firmware Architecture (ESP-IDF)
 Built with ESP-IDF v5.5. The firmware avoids putting hardware control inside radio callbacks. It is split into three main concerns:
